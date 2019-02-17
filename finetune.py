@@ -13,7 +13,7 @@ contact: f.kratzert(at)gmail.com
 """
 
 import os
-
+import glob
 import numpy as np
 import tensorflow as tf
 
@@ -26,14 +26,32 @@ from tensorflow.contrib.data import Iterator
 Configuration Part.
 """
 
-# Path to the textfiles for the trainings and validation set
-train_file = '/path/to/train.txt'
-val_file = '/path/to/val.txt'
+def create_file(image_dir,out_file,class_index):
+    if class_index==0:
+        out = open(out_file,mode='w')
+    else:
+        out = open(out_file,mode = 'a')
+    png_list = glob.glob(os.path.join(image_dir,"*.png"))
+    jpg_list = glob.glob(os.path.join(image_dir,"*.jpg"))
+    jpeg_list = glob.glob(os.path.join(image_dir,"*.jpeg"))
+    path_list = png_list+jpeg_list+jpg_list
+    for path in path_list:
+        out.write(path+" "+str(class_index))
+        out.write("\n")
 
+
+# Path to the textfiles for the trainings and validation set
+train_file = './train.txt'
+val_file = './val.txt'
+create_file(r"F:\data\fire\fire-dataset-dunnings-r2d217qp536-version1\fire-dataset-dunnings\nofire",train_file,0)
+create_file(r"F:\data\fire\fire-dataset-dunnings-r2d217qp536-version1\fire-dataset-dunnings\fire",train_file,1)
+
+create_file(r"F:\data\fire\工厂实景图片\工厂实景图片\宏晖五金图片",val_file,1)
+#create_file(r"F:\data\dog_cat\test\dog",val_file,1)
 # Learning params
-learning_rate = 0.01
+learning_rate = 0.001
 num_epochs = 10
-batch_size = 128
+batch_size = 8
 
 # Network params
 dropout_rate = 0.5
@@ -44,8 +62,8 @@ train_layers = ['fc8', 'fc7', 'fc6']
 display_step = 20
 
 # Path for tf.summary.FileWriter and to store model checkpoints
-filewriter_path = "/tmp/finetune_alexnet/tensorboard"
-checkpoint_path = "/tmp/finetune_alexnet/checkpoints"
+filewriter_path = "./tensorboard"
+checkpoint_path = "./checkpoints"
 
 """
 Main Part of the finetuning Script.
@@ -53,8 +71,10 @@ Main Part of the finetuning Script.
 
 # Create parent path if it doesn't exist
 if not os.path.isdir(checkpoint_path):
-    os.mkdir(checkpoint_path)
+    os.makedirs(checkpoint_path)
 
+if not os.path.isdir(filewriter_path):
+    os.makedirs(filewriter_path)
 # Place data loading and preprocessing on the cpu
 with tf.device('/cpu:0'):
     tr_data = ImageDataGenerator(train_file,
@@ -78,16 +98,18 @@ training_init_op = iterator.make_initializer(tr_data.data)
 validation_init_op = iterator.make_initializer(val_data.data)
 
 # TF placeholder for graph input and output
-x = tf.placeholder(tf.float32, [batch_size, 227, 227, 3])
-y = tf.placeholder(tf.float32, [batch_size, num_classes])
-keep_prob = tf.placeholder(tf.float32)
+x = tf.placeholder(tf.float32, [None, 227, 227, 3])
 
+y = tf.placeholder(tf.float32, [None, num_classes])
+keep_prob = tf.placeholder(tf.float32)
+print(x.name)
+print(keep_prob.name)
 # Initialize model
 model = AlexNet(x, keep_prob, num_classes, train_layers)
 
 # Link variable to model output
 score = model.fc8
-
+print(score.name)
 # List of trainable variables of the layers we want to train
 var_list = [v for v in tf.trainable_variables() if v.name.split('/')[0] in train_layers]
 
@@ -174,12 +196,12 @@ with tf.Session() as sess:
                                           keep_prob: dropout_rate})
 
             # Generate summary with the current batch of data and write to file
-            if step % display_step == 0:
-                s = sess.run(merged_summary, feed_dict={x: img_batch,
-                                                        y: label_batch,
-                                                        keep_prob: 1.})
-
-                writer.add_summary(s, epoch*train_batches_per_epoch + step)
+            # if step % display_step == 0:
+            #     s = sess.run(merged_summary, feed_dict={x: img_batch,
+            #                                             y: label_batch,
+            #                                             keep_prob: 1.})
+            #
+            #     writer.add_summary(s, epoch*train_batches_per_epoch + step)
 
         # Validate the model on the entire validation set
         print("{} Start validation".format(datetime.now()))
@@ -206,3 +228,5 @@ with tf.Session() as sess:
 
         print("{} Model checkpoint saved at {}".format(datetime.now(),
                                                        checkpoint_name))
+        if acc >=1.0:
+            break

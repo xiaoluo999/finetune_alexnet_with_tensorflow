@@ -101,7 +101,7 @@ class ImageDataGenerator(object):
         """Conjoined shuffling of the list of paths and labels."""
         path = self.img_paths
         labels = self.labels
-        permutation = np.random.permutation(self.data_size)
+        permutation = np.random.permutation(self.data_size)#返回一个新的打乱顺序的数组，并不改变原来的数组。
         self.img_paths = []
         self.labels = []
         for i in permutation:
